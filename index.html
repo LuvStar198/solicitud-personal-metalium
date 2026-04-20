@@ -481,6 +481,7 @@
   .controls .bar{width:180px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden}
   .controls .bar .fill{height:100%;background:var(--c-blue);width:0%;transition:width .2s}
   .hide-ui .controls{display:none}
+  body.paused #stage *{animation-play-state:paused !important}
 
   /* Mini "Mostrar" button when UI is hidden */
   .show-mini{
@@ -1035,6 +1036,7 @@
     stage.classList.remove('playing');
     void stage.offsetWidth;
     stage.classList.add('playing');
+    document.body.classList.remove('paused');
     hasStarted = true;
     setPlayingUI(true);
     rafId = requestAnimationFrame(ts => { startTime = ts; tick(ts); });
@@ -1042,6 +1044,7 @@
 
   function resume(){
     if (isPlaying || !hasStarted) return;
+    document.body.classList.remove('paused');
     setPlayingUI(true);
     rafId = requestAnimationFrame(ts => { startTime = ts; tick(ts); });
   }
@@ -1050,6 +1053,7 @@
     if (!isPlaying) return;
     if (rafId) cancelAnimationFrame(rafId);
     pausedAt = Math.min(parseFloat(time.textContent), DURATION);
+    document.body.classList.add('paused');
     setPlayingUI(false);
   }
 
