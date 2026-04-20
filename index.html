@@ -482,6 +482,19 @@
   .controls .bar .fill{height:100%;background:var(--c-blue);width:0%;transition:width .2s}
   .hide-ui .controls{display:none}
 
+  /* Mini "Mostrar" button when UI is hidden */
+  .show-mini{
+    position:fixed;bottom:14px;right:14px;z-index:200;
+    background:rgba(0,0,0,.65);backdrop-filter:blur(8px);
+    color:var(--c-white);border:1px solid rgba(255,255,255,.25);
+    padding:7px 14px;border-radius:999px;font-size:12px;font-weight:700;
+    letter-spacing:1px;text-transform:uppercase;cursor:pointer;
+    font-family:var(--font);transition:all .2s;
+    display:none;
+  }
+  .show-mini:hover{background:var(--c-blue);border-color:var(--c-blue)}
+  .hide-ui .show-mini{display:block}
+
   /* Splash */
   .splash{
     position:fixed;inset:0;z-index:50;background:var(--c-navy);
@@ -517,7 +530,7 @@
     </div>
     <div class="corner-tag">GUÍA DE USUARIO · V1.0</div>
     <div class="logo-block">
-      <img src="logo.jpg" class="logo-welder" alt="Metalium SPA">
+      <img src="logo.png" class="logo-welder" alt="Metalium SPA">
       <div class="logo-wordmark"><span class="meta" style="color:#fff">Metal</span><span class="lium">ium</span><span class="spa" style="color:#7FCAEC">SPA</span></div>
     </div>
     <div class="title-block">
@@ -932,7 +945,7 @@
       </svg>
     </div>
     <div class="outro-logo">
-      <img src="logo.jpg" class="logo-welder" alt="Metalium SPA">
+      <img src="logo.png" class="logo-welder" alt="Metalium SPA">
       <div class="logo-wordmark"><span class="meta">Metal</span><span class="lium">ium</span><span class="spa">SPA</span></div>
     </div>
     <div class="tagline">
@@ -952,12 +965,15 @@
 
 <div class="controls" id="controls">
   <button id="playBtn">▶ Reproducir</button>
+  <button id="pauseBtn" class="ghost" style="display:none">⏸ Pausar</button>
   <button id="replayBtn" class="ghost">⟲ Reiniciar</button>
   <div class="bar"><div class="fill" id="fill"></div></div>
   <span class="time" id="time">0.0s / 85s</span>
   <button id="hideBtn" class="ghost">Ocultar</button>
   <button id="fullBtn" class="ghost">⛶ Pantalla completa</button>
 </div>
+
+<button class="show-mini" id="showMiniBtn">⊕ Mostrar</button>
 
 <div class="splash" id="splash">
   <h1>Metal<span>ium</span> SPA</h1>
@@ -973,9 +989,11 @@
   const time = document.getElementById('time');
   const startBtn = document.getElementById('startBtn');
   const playBtn = document.getElementById('playBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
   const replayBtn = document.getElementById('replayBtn');
   const hideBtn = document.getElementById('hideBtn');
   const fullBtn = document.getElementById('fullBtn');
+  const showMiniBtn = document.getElementById('showMiniBtn');
 
   const DURATION = 85;
 
@@ -987,42 +1005,74 @@
   fit();
 
   let startTime = null;
+  let pausedAt = 0;
   let rafId = null;
+  let isPlaying = false;
+  let hasStarted = false;
+
+  function setPlayingUI(playing){
+    isPlaying = playing;
+    playBtn.style.display  = playing ? 'none' : '';
+    pauseBtn.style.display = playing ? ''     : 'none';
+  }
 
   function tick(ts){
-    if (!startTime) startTime = ts;
-    const elapsed = (ts - startTime) / 1000;
+    const elapsed = pausedAt + (ts - startTime) / 1000;
     const p = Math.min(elapsed / DURATION, 1);
     fill.style.width = (p * 100) + '%';
     time.textContent = elapsed.toFixed(1) + 's / ' + DURATION + 's';
-    if (p < 1) rafId = requestAnimationFrame(tick);
-    else time.textContent = 'Terminado · ' + DURATION + '.0s';
+    if (p < 1) {
+      rafId = requestAnimationFrame(tick);
+    } else {
+      time.textContent = 'Terminado · ' + DURATION + '.0s';
+      setPlayingUI(false);
+    }
   }
 
   function play(){
+    if (rafId) cancelAnimationFrame(rafId);
+    pausedAt = 0;
     stage.classList.remove('playing');
     void stage.offsetWidth;
-    startTime = null;
-    if (rafId) cancelAnimationFrame(rafId);
     stage.classList.add('playing');
-    rafId = requestAnimationFrame(tick);
+    hasStarted = true;
+    setPlayingUI(true);
+    rafId = requestAnimationFrame(ts => { startTime = ts; tick(ts); });
+  }
+
+  function resume(){
+    if (isPlaying || !hasStarted) return;
+    setPlayingUI(true);
+    rafId = requestAnimationFrame(ts => { startTime = ts; tick(ts); });
+  }
+
+  function pause(){
+    if (!isPlaying) return;
+    if (rafId) cancelAnimationFrame(rafId);
+    pausedAt = Math.min(parseFloat(time.textContent), DURATION);
+    setPlayingUI(false);
+  }
+
+  function toggleHideUI(){
+    document.body.classList.toggle('hide-ui');
   }
 
   startBtn.addEventListener('click', () => { splash.classList.add('hidden'); play(); });
-  playBtn.addEventListener('click', play);
+  playBtn.addEventListener('click', () => { if (!hasStarted || pausedAt >= DURATION) play(); else resume(); });
+  pauseBtn.addEventListener('click', pause);
   replayBtn.addEventListener('click', play);
-  hideBtn.addEventListener('click', () => {
-    document.body.classList.toggle('hide-ui');
-    hideBtn.textContent = document.body.classList.contains('hide-ui') ? 'Mostrar' : 'Ocultar';
-  });
+  hideBtn.addEventListener('click', toggleHideUI);
+  showMiniBtn.addEventListener('click', toggleHideUI);
+
   fullBtn.addEventListener('click', () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen();
     else document.exitFullscreen();
   });
+
   document.addEventListener('keydown', e => {
     if (e.key === 'f' || e.key === 'F') fullBtn.click();
-    if (e.key === ' ') { e.preventDefault(); play(); }
-    if (e.key === 'h' || e.key === 'H') hideBtn.click();
+    if (e.key === ' ') { e.preventDefault(); isPlaying ? pause() : resume(); }
+    if (e.key === 'h' || e.key === 'H') toggleHideUI();
   });
 </script>
 
